@@ -1,0 +1,6 @@
+services:
+  keyboard2:
+    image: keyboard2
+    build:
+      context: .
+      dockerfile: ./Dockerfile
