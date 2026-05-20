@@ -13,6 +13,8 @@ export class AudioEngine {
         this.sustain = false;
         this.sustainedNotes = new Set();
         this.contextStarted = false;
+        this.reverbAmount = 0.5;
+        this.brightnessAmount = 0.5;
 
         this.init();
     }
@@ -43,6 +45,16 @@ export class AudioEngine {
         this.stateManager.subscribe(state => {
             if (state.instrument) {
                 this.instrumentManager.switchTo(state.instrument);
+                // Persist active Reverb & Brightness amounts on the new instrument
+                const inst = this.instrumentManager.getCurrent();
+                if (inst) {
+                    if (typeof inst.setRoom === 'function') {
+                        inst.setRoom(this.reverbAmount);
+                    }
+                    if (typeof inst.setBrightness === 'function') {
+                        inst.setBrightness(this.brightnessAmount);
+                    }
+                }
             }
             if (typeof state.volume === 'number') {
                 // Smooth ramp to new volume
@@ -122,6 +134,7 @@ export class AudioEngine {
     }
 
     setRoom(amount) {
+        this.reverbAmount = amount;
         const inst = this.instrumentManager.getCurrent();
         if (inst && typeof inst.setRoom === 'function') {
             inst.setRoom(amount);
@@ -129,6 +142,7 @@ export class AudioEngine {
     }
 
     setBrightness(amount) {
+        this.brightnessAmount = amount;
         const inst = this.instrumentManager.getCurrent();
         if (inst && typeof inst.setBrightness === 'function') {
             inst.setBrightness(amount);

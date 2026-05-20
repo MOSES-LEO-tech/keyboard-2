@@ -45,6 +45,7 @@ export class KeyStreamView {
         this.activeNotes       = new Set();
         this.animFrameId       = null;
         this.columnOverlays    = new Map(); // fullName -> overlay element
+        this.particles         = [];        // Particle system pool
         
         // Track note range for dynamic row height calculation
         this.minMidi = DISPLAY_LOW_MIDI;
@@ -197,6 +198,59 @@ export class KeyStreamView {
         this._drawBackground(ctx, w, h);
         this._drawGridLines(ctx, w, h);
         this._drawNotes(ctx, w, h);
+        this._updateAndDrawParticles(ctx, w, h);
+    }
+
+    _updateAndDrawParticles(ctx, w, h) {
+        for (let i = this.particles.length - 1; i >= 0; i--) {
+            const p = this.particles[i];
+            
+            // Physics update
+            p.x += p.vx;
+            p.y += p.vy;
+            p.vx *= 0.95; // air drag
+            p.vy *= 0.95;
+            p.vx -= 0.05; // gentle float back along waterfall flow
+            p.vy -= 0.02; // slight upward draft
+            p.life -= p.decay;
+
+            if (p.life <= 0) {
+                this.particles.splice(i, 1);
+                continue;
+            }
+
+            // Draw particle
+            ctx.save();
+            ctx.beginPath();
+            ctx.arc(p.x, p.y, p.size * p.life, 0, Math.PI * 2);
+            ctx.fillStyle = `hsla(${p.hue}, 100%, ${p.brightness}%, ${p.life})`;
+            
+            // Neon stardust outer glow
+            ctx.shadowColor = `hsla(${p.hue}, 100%, 60%, ${p.life})`;
+            ctx.shadowBlur = p.size * 2.5;
+            
+            ctx.fill();
+            ctx.restore();
+        }
+    }
+
+    spawnParticles(x, y, isLeft) {
+        const count = 18; // cluster size
+        for (let i = 0; i < count; i++) {
+            const angle = Math.random() * Math.PI * 2;
+            const speed = Math.random() * 4.5 + 1.5;
+            this.particles.push({
+                x,
+                y,
+                vx: Math.cos(angle) * speed,
+                vy: Math.sin(angle) * speed,
+                size: Math.random() * 3 + 1.2,
+                life: 1.0,
+                decay: Math.random() * 0.025 + 0.015,
+                hue: isLeft ? (175 + Math.random() * 20) : (260 + Math.random() * 25),
+                brightness: Math.random() * 20 + 60
+            });
+        }
     }
 
     _drawBackground(ctx, w, h) {
@@ -480,6 +534,12 @@ export class KeyStreamView {
         overlay.style.opacity = '1';
         // Reset the clearing flag since we're showing the overlay
         overlay._isClearing = false;
+
+        // Spawn interactive canvas particle burst at correct vertical coordinates
+        if (midi !== null) {
+            const y = this._midiToY(midi, this.canvas.height);
+            this.spawnParticles(this.HIT_X, y, isLeft);
+        }
     }
 
     /**

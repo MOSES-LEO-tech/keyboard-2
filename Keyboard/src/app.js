@@ -11,6 +11,7 @@ import { UI } from './ui/KeyboardView.js';
 import { SongService } from './services/SongService.js';
 import { SongLibraryService } from './services/SongLibraryService.js';
 import { MidiService } from './services/MidiService.js';
+import { MetronomeService } from './services/MetronomeService.js';
 import { Sequencer } from './core/Sequencer.js';
 
 console.log('Keyboard-Keyboard initializing...');
@@ -23,8 +24,9 @@ const mappingEngine = new MappingEngine(stateManager);
 const inputEngine = new InputEngine(stateManager);
 const songService = new SongService();
 const midiService = new MidiService();
+const metronomeService = new MetronomeService();
 const libraryService = new SongLibraryService(songService);
-const ui = new UI(stateManager, mappingEngine, songService, midiService, libraryService, audioEngine, modeController);
+const ui = new UI(stateManager, mappingEngine, songService, midiService, libraryService, audioEngine, modeController, metronomeService);
 const sequencer = new Sequencer(audioEngine, stateManager, ui);
 
 // Register Modes
@@ -69,5 +71,6 @@ window.app = {
     mode: modeController,
     ui: ui,
     songs: songService,
-    sequencer: sequencer
+    sequencer: sequencer,
+    metronome: metronomeService
 };

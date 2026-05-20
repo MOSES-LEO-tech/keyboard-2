@@ -4,7 +4,7 @@ import { SongBrowserView } from './SongBrowserView.js';
 import { KeyStreamView } from './KeyStreamView.js';
 
 export class UI {
-    constructor(stateManager, mappingEngine, songService, midiService, libraryService, audioEngine, modeController) {
+    constructor(stateManager, mappingEngine, songService, midiService, libraryService, audioEngine, modeController, metronomeService) {
         this.stateManager = stateManager;
         this.mappingEngine = mappingEngine;
         this.songService = songService;
@@ -12,6 +12,7 @@ export class UI {
         this.libraryService = libraryService;
         this.audioEngine = audioEngine;
         this.modeController = modeController;
+        this.metronomeService = metronomeService;
         this.container = document.getElementById('keyboard-container');
         this.statusBar = document.getElementById('status-bar');
         this.keys = new Map();
@@ -198,7 +199,6 @@ export class UI {
                         <option value="listen">Listen (Auto)</option>
                     </select>
                 </div>
-                <!-- REMOVED OLD WAIT TOGGLE -->
                 
                 <div class="control-group">
                     <label>Assist:</label>
@@ -212,22 +212,36 @@ export class UI {
                 <div class="control-group">
                     <button id="btn-play-pause" style="width: 40px; font-size: 1.2em;">▶</button>
                 </div>
+                <div class="control-group metronome-control">
+                    <button id="btn-metronome-toggle" class="btn-metronome-toggle" title="Toggle Metronome">⏱️</button>
+                    <span id="metronome-led" class="metronome-led"></span>
+                    <input id="metronome-volume" class="metronome-volume-slider" type="range" min="0" max="1" step="0.05" value="0.6" title="Metronome Volume" style="width: 55px;" />
+                </div>
                 <div class="control-group">
                     <button id="btn-learn-song" style="color: var(--accent-primary); border-color: var(--accent-primary);">♫ Learn Song</button>
                 </div>
-                 <div class="control-group">
+                <div class="control-group">
+                    <button id="btn-effects-toggle" class="effects-drawer-trigger">🎛️ Synth FX</button>
+                </div>
+                <div class="control-group">
                     <label>Inst:</label>
                     <select id="instrument-select">
-                        <option value="piano">Piano</option>
-                        <option value="piano-bright">Piano (Bright)</option>
-                        <option value="piano-soft">Piano (Soft)</option>
-                        <option value="grand-piano">Grand Piano</option>
-                        <option value="electric-piano">E. Piano</option>
-                        <option value="organ">Organ</option>
-                        <option value="strings">Strings</option>
-                        <option value="pad">Pad</option>
-                        <option value="bass">Bass</option>
-                        <option value="pluck">Pluck</option>
+                        <option value="piano">Acoustic Piano</option>
+                        <option value="piano-bright">Bright Piano</option>
+                        <option value="piano-soft">Soft Piano</option>
+                        <option value="piano-dark">Dark Piano</option>
+                        <option value="piano-warm">Warm Piano</option>
+                        <option value="piano-felt">Felt Piano</option>
+                        <option value="piano-cinematic">Cinematic Piano</option>
+                        <option value="upright-piano">Upright Piano</option>
+                        <option value="piano-honkytonk">Honkytonk Piano</option>
+                        <option value="grand-piano">Concert Grand</option>
+                        <option value="electric-piano">Electric Piano</option>
+                        <option value="organ">Classic Organ</option>
+                        <option value="strings">Symphonic Strings</option>
+                        <option value="pad">Ambient Pad</option>
+                        <option value="bass">Synth Bass</option>
+                        <option value="pluck">Percussive Pluck</option>
                     </select>
                 </div>
                 <div class="control-group">
@@ -266,7 +280,39 @@ export class UI {
             const s = parseFloat(e.target.value);
             document.getElementById('speed-value').innerText = `${Math.round(s * 100)}%`;
             this.stateManager.setState({ speed: s });
+            if (this.metronomeService) {
+                this.metronomeService.updateSpeed(s);
+            }
         });
+
+        // Metronome Button and Volume bindings
+        const btnMetronome = document.getElementById('btn-metronome-toggle');
+        const sliderMetronomeVol = document.getElementById('metronome-volume');
+
+        if (btnMetronome && this.metronomeService) {
+            btnMetronome.addEventListener('click', () => {
+                const isPlaying = this.metronomeService.toggle();
+                btnMetronome.classList.toggle('active', isPlaying);
+            });
+
+            // Bind beat visual flash LED callback
+            this.metronomeService.onBeat = (beatCount) => {
+                const led = document.getElementById('metronome-led');
+                if (led) {
+                    const isDownbeat = beatCount % 4 === 0;
+                    const flashClass = isDownbeat ? 'blink-accent1' : 'blink-accent2';
+                    led.classList.add(flashClass);
+                    setTimeout(() => led.classList.remove('blink-accent1', 'blink-accent2'), 120);
+                }
+            };
+        }
+
+        if (sliderMetronomeVol && this.metronomeService) {
+            sliderMetronomeVol.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                this.metronomeService.setVolume(val);
+            });
+        }
         document.getElementById('difficulty-select').addEventListener('change', (e) => {
             this.stateManager.setState({ difficulty: e.target.value });
             e.target.blur();
@@ -353,6 +399,12 @@ export class UI {
                         window.app.sequencer.loadSong(song);
                         if (window.app.mainStream) window.app.mainStream.setSong(song);
 
+                        // Sync Metronome BPM!
+                        if (this.metronomeService) {
+                            this.metronomeService.setBpm(song.bpm);
+                            this.metronomeService.updateSpeed(this.stateManager.getState().speed || 1.0);
+                        }
+
                         // Enable wait mode by default for guided mode
                         this.stateManager.setState({ waitMode: true, autoPlay: false });
                         window.app.sequencer.setWaitMode(true);
@@ -394,6 +446,58 @@ export class UI {
                         window.app.sequencer.play();
                     });
                 view.render();
+            });
+        }
+
+        // Dynamically insert and wire up the Synth FX drawer
+        let drawer = document.getElementById('effects-drawer');
+        if (!drawer) {
+            drawer = document.createElement('div');
+            drawer.id = 'effects-drawer';
+            drawer.className = 'effects-drawer';
+            drawer.innerHTML = `
+                <div class="effect-knob-group">
+                    <label>Room Reverb:</label>
+                    <input id="effect-reverb" type="range" min="0" max="1" step="0.05" value="0.5" />
+                    <span id="reverb-value">50%</span>
+                </div>
+                <div class="effect-knob-group">
+                    <label>Filter Tone:</label>
+                    <input id="effect-brightness" type="range" min="0" max="1" step="0.05" value="0.5" />
+                    <span id="brightness-value">50%</span>
+                </div>
+            `;
+            this.statusBar.after(drawer);
+        }
+
+        // Toggle FX drawer
+        const btnEffects = document.getElementById('btn-effects-toggle');
+        if (btnEffects) {
+            btnEffects.addEventListener('click', () => {
+                drawer.classList.toggle('open');
+                btnEffects.classList.toggle('active');
+            });
+        }
+
+        // Connect FX Reverb Slider
+        const sliderReverb = document.getElementById('effect-reverb');
+        const valReverb = document.getElementById('reverb-value');
+        if (sliderReverb) {
+            sliderReverb.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                valReverb.innerText = `${Math.round(val * 100)}%`;
+                this.audioEngine.setRoom(val);
+            });
+        }
+
+        // Connect FX Tone Slider
+        const sliderBrightness = document.getElementById('effect-brightness');
+        const valBrightness = document.getElementById('brightness-value');
+        if (sliderBrightness) {
+            sliderBrightness.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                valBrightness.innerText = `${Math.round(val * 100)}%`;
+                this.audioEngine.setBrightness(val);
             });
         }
     }
