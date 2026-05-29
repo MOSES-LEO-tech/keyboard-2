@@ -1,141 +1,62 @@
 import { BaseInstrument } from './BaseInstrument.js';
-import { CONFIG } from '../config.js';
+import { SharedSampler } from '../core/SharedSampler.js';
 
-const PROFILE_SYNTH = {
-    normal:    { osc: 'triangle', attack: 0.02, decay: 0.15, sustain: 0.35, release: 0.8 },
-    bright:    { osc: 'triangle', attack: 0.01, decay: 0.10, sustain: 0.40, release: 0.7 },
-    soft:      { osc: 'sine',    attack: 0.05, decay: 0.20, sustain: 0.25, release: 1.2 },
-    dark:      { osc: 'sine',    attack: 0.06, decay: 0.25, sustain: 0.20, release: 1.0 },
-    warm:      { osc: 'triangle', attack: 0.03, decay: 0.18, sustain: 0.35, release: 0.9 },
-    cinematic: { osc: 'sawtooth', attack: 0.08, decay: 0.30, sustain: 0.30, release: 2.0 },
-    felt:      { osc: 'sine',    attack: 0.10, decay: 0.20, sustain: 0.15, release: 1.5 },
-    upright:   { osc: 'triangle', attack: 0.02, decay: 0.12, sustain: 0.38, release: 0.6 },
-    honkytonk: { osc: 'square',  attack: 0.01, decay: 0.05, sustain: 0.20, release: 0.3 }
+const PROFILES = {
+    normal:    { eqLow: -2, eqMid: 0,  eqHigh: 2,  filterCutoff: 3000, reverbWet: 0.12, reverbDecay: 1.8 },
+    bright:    { eqLow: -4, eqMid: 2,  eqHigh: 4,  filterCutoff: 4500, reverbWet: 0.10, reverbDecay: 1.5 },
+    soft:      { eqLow:  0, eqMid: -1, eqHigh: -2, filterCutoff: 2000, reverbWet: 0.20, reverbDecay: 2.2 },
+    dark:      { eqLow:  2, eqMid: 0,  eqHigh: -4, filterCutoff: 1200, reverbWet: 0.18, reverbDecay: 2.0 },
+    warm:      { eqLow:  3, eqMid: 1,  eqHigh: -1, filterCutoff: 2500, reverbWet: 0.15, reverbDecay: 1.9 },
+    cinematic: { eqLow:  4, eqMid: -1, eqHigh: 1,  filterCutoff: 3500, reverbWet: 0.28, reverbDecay: 2.8 },
+    felt:      { eqLow: -3, eqMid: -2, eqHigh: -3, filterCutoff: 1800, reverbWet: 0.25, reverbDecay: 2.5 },
+    upright:   { eqLow:  2, eqMid: 1,  eqHigh: -2, filterCutoff: 2200, reverbWet: 0.08, reverbDecay: 1.2 },
+    honkytonk: { eqLow:  4, eqMid: 3,  eqHigh: 2,  filterCutoff: 4000, reverbWet: 0.05, reverbDecay: 1.0 }
 };
 
 export class PianoInstrument extends BaseInstrument {
     constructor(options = {}) {
         super();
-        const profile = options.profile || 'normal';
-        const synthDef = PROFILE_SYNTH[profile] || PROFILE_SYNTH.normal;
-        const quality = CONFIG.audio.effectsQuality;
+        this.profile = PROFILES[options.profile] || PROFILES.normal;
+        this.sampler = SharedSampler.get();
 
-        this.poly = new Tone.PolySynth(Tone.Synth, {
-            oscillator: { type: synthDef.osc },
-            envelope: {
-                attack: synthDef.attack,
-                decay: synthDef.decay,
-                sustain: synthDef.sustain,
-                release: synthDef.release
-            },
-            volume: -6
-        });
-
-        if (quality === 'low') {
-            this.poly.connect(this._getOutput());
-            this._waitSampleLoad(profile);
-        } else {
-            this.reverb = new Tone.Reverb({ decay: 1.5, preDelay: 0.05, wet: 0.15 });
-            this.poly.connect(this.reverb);
-            this._getOutput = () => this.reverb;
-            this._waitSampleLoad(profile);
-        }
-    }
-
-    _buildSampleChain(profile) {
-        if (this.reverb) this.reverb.dispose();
-        this.reverb = new Tone.Reverb({ decay: 1.8, preDelay: 0.05, wet: 0.15 });
-
-        this.eq = new Tone.EQ3(0, 0, 0);
-        if (CONFIG.audio.effectsQuality !== 'low') {
-            this.filter = new Tone.Filter(2000, 'lowpass');
-        }
-
-        const urls = {
-            'A0':'A0.mp3','C1':'C1.mp3','D#1':'Ds1.mp3','F#1':'Fs1.mp3',
-            'A1':'A1.mp3','C2':'C2.mp3','D#2':'Ds2.mp3','F#2':'Fs2.mp3',
-            'A2':'A2.mp3','C3':'C3.mp3','D#3':'Ds3.mp3','F#3':'Fs3.mp3',
-            'A3':'A3.mp3','C4':'C4.mp3','D#4':'Ds4.mp3','F#4':'Fs4.mp3',
-            'A4':'A4.mp3','C5':'C5.mp3','D#5':'Ds5.mp3','F#5':'Fs5.mp3',
-            'A5':'A5.mp3','C6':'C6.mp3','D#6':'Ds6.mp3','F#6':'Fs6.mp3',
-            'A6':'A6.mp3','C7':'C7.mp3','D#7':'Ds7.mp3','F#7':'Fs7.mp3'
-        };
-
-        this.sampler = new Tone.Sampler({
-            urls,
-            release: 1.2,
-            baseUrl: 'https://tonejs.github.io/audio/salamander/',
-            onload: () => {
-                this._switchToSampler(profile);
-            }
-        });
-
-        if (this.filter) {
-            this.sampler.chain(this.eq, this.filter, this.reverb);
-        } else {
-            this.sampler.chain(this.eq, this.reverb);
-        }
-    }
-
-    _waitSampleLoad(profile) {
-        if (CONFIG.audio.useSamples) {
-            this._buildSampleChain(profile);
-        }
-    }
-
-    _switchToSampler(profile) {
-        window.dispatchEvent(new CustomEvent('samples-loaded', { detail: { instrument: 'piano', profile } }));
-    }
-
-    _getOutput() {
-        if (this.reverb) return this.reverb;
-        return Tone.Destination;
+        this.eq3 = new Tone.EQ3({ low: this.profile.eqLow, mid: this.profile.eqMid, high: this.profile.eqHigh });
+        this.filter = new Tone.Filter({ type: 'lowpass', frequency: this.profile.filterCutoff, Q: 0.3 });
+        this.reverb = new Tone.Reverb({ decay: this.profile.reverbDecay, preDelay: 0.05, wet: this.profile.reverbWet });
+        this.reverb.generate();
     }
 
     connect(destination) {
-        const out = this._getOutput();
-        if (out !== Tone.Destination) {
-            out.disconnect();
-            out.connect(destination);
-        }
+        if (this.sampler) this.sampler.chain(this.eq3, this.filter, this.reverb, destination);
     }
 
     disconnect() {
-        const out = this._getOutput();
-        if (out !== Tone.Destination) out.disconnect();
+        if (this.sampler) this.sampler.disconnect();
     }
 
     noteOn(note, velocity = 1, time) {
-        const now = time || Tone.now();
-        if (this.sampler && this.sampler.loaded) {
-            this.sampler.triggerAttack(note, now, velocity);
-        } else {
-            this.poly.triggerAttack(note, now, velocity);
-        }
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerAttack(note, time || Tone.now(), velocity);
     }
 
     noteOff(note, time) {
-        const now = time || Tone.now();
-        if (this.sampler && this.sampler.loaded) {
-            this.sampler.triggerRelease(note, now);
-        } else {
-            this.poly.triggerRelease(note, now);
-        }
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerRelease(note, time || Tone.now());
     }
 
     setRoom(amount) {
-        if (this.reverb) this.reverb.wet.value = 0.05 + amount * 0.2;
+        this.reverb.wet.value = 0.05 + amount * 0.25;
     }
 
     setBrightness(amount) {
-        if (this.filter) this.filter.frequency.rampTo(800 + amount * 3000, 0.2);
+        const freq = 800 + amount * 3500;
+        this.filter.frequency.value = freq;
+        this.eq3.high.value = -3 + amount * 7;
     }
 
     dispose() {
-        this.poly.dispose();
-        if (this.sampler) this.sampler.dispose();
-        if (this.eq) this.eq.dispose();
-        if (this.filter) this.filter.dispose();
-        if (this.reverb) this.reverb.dispose();
+        this.sampler = null;
+        this.eq3.dispose();
+        this.filter.dispose();
+        this.reverb.dispose();
     }
 }

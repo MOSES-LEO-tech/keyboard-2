@@ -1,27 +1,42 @@
 import { BaseInstrument } from './BaseInstrument.js';
+import { SharedSampler } from '../core/SharedSampler.js';
 
 export class PluckInstrument extends BaseInstrument {
     constructor() {
         super();
+        this.sampler = SharedSampler.get();
 
-        this.poly = new Tone.PolySynth(Tone.Synth, {
-            oscillator: { type: 'triangle' },
-            envelope: { attack: 0.005, decay: 0.1, sustain: 0, release: 0.15 },
-            volume: -8
-        });
-
-        this.poly.connect(Tone.Destination);
-        this.output = this.poly;
+        this.eq3 = new Tone.EQ3({ low: -1, mid: 2, high: 3 });
+        this.compressor = new Tone.Compressor({ threshold: -20, ratio: 4, attack: 0.001, release: 0.05 });
+        this.gain = new Tone.Gain(1.2);
     }
 
-    connect(destination) { this.poly.disconnect(); this.poly.connect(destination); }
-    disconnect() { this.poly.disconnect(); }
+    connect(destination) {
+        if (this.sampler) this.sampler.chain(this.eq3, this.compressor, this.gain, destination);
+    }
+
+    disconnect() {
+        if (this.sampler) this.sampler.disconnect();
+    }
 
     noteOn(note, velocity = 1, time) {
-        this.poly.triggerAttack(note, time || Tone.now(), velocity);
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerAttack(note, time || Tone.now(), velocity);
     }
 
-    noteOff(note, time) { this.poly.triggerRelease(note, time || Tone.now()); }
+    noteOff(note, time) {
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerRelease(note, time || Tone.now());
+    }
 
-    dispose() { this.poly.dispose(); }
+    setBrightness(amount) {
+        this.eq3.high.value = 1 + amount * 6;
+    }
+
+    dispose() {
+        this.sampler = null;
+        this.eq3.dispose();
+        this.compressor.dispose();
+        this.gain.dispose();
+    }
 }

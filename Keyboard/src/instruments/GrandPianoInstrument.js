@@ -1,35 +1,48 @@
 import { BaseInstrument } from './BaseInstrument.js';
+import { SharedSampler } from '../core/SharedSampler.js';
 
 export class GrandPianoInstrument extends BaseInstrument {
     constructor() {
         super();
+        this.sampler = SharedSampler.get();
 
-        this.poly = new Tone.PolySynth(Tone.Synth, {
-            oscillator: { type: 'triangle' },
-            envelope: { attack: 0.02, decay: 0.2, sustain: 0.35, release: 2.0 },
-            volume: -5
-        });
-
-        this.reverb = new Tone.Reverb({ decay: 3.5, preDelay: 0.08, wet: 0.25 });
+        this.eq3 = new Tone.EQ3({ low: 1, mid: 0.5, high: 3 });
+        this.compressor = new Tone.Compressor({ threshold: -24, ratio: 4, attack: 0.003, release: 0.25 });
+        this.reverb = new Tone.Reverb({ decay: 4.5, preDelay: 0.06, wet: 0.22 });
         this.reverb.generate();
-
-        this.poly.chain(this.reverb);
-        this.output = this.reverb;
     }
 
-    connect(destination) { this.reverb.disconnect(); this.reverb.connect(destination); }
-    disconnect() { this.reverb.disconnect(); }
+    connect(destination) {
+        if (this.sampler) this.sampler.chain(this.eq3, this.compressor, this.reverb, destination);
+    }
+
+    disconnect() {
+        if (this.sampler) this.sampler.disconnect();
+    }
 
     noteOn(note, velocity = 1, time) {
-        this.poly.triggerAttack(note, time || Tone.now(), velocity * velocity);
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerAttack(note, time || Tone.now(), velocity * velocity);
     }
 
-    noteOff(note, time) { this.poly.triggerRelease(note, time || Tone.now()); }
+    noteOff(note, time) {
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerRelease(note, time || Tone.now());
+    }
 
     setRoom(amount) {
-        this.reverb.wet.value = 0.1 + amount * 0.3;
-        this.reverb.decay = 2.5 + amount * 3.0;
+        this.reverb.wet.value = 0.08 + amount * 0.30;
+        this.reverb.decay = 3.0 + amount * 4.0;
     }
 
-    dispose() { this.poly.dispose(); this.reverb.dispose(); }
+    setBrightness(amount) {
+        this.eq3.high.value = -2 + amount * 8;
+    }
+
+    dispose() {
+        this.sampler = null;
+        this.eq3.dispose();
+        this.compressor.dispose();
+        this.reverb.dispose();
+    }
 }

@@ -1,42 +1,48 @@
 import { BaseInstrument } from './BaseInstrument.js';
+import { SharedSampler } from '../core/SharedSampler.js';
 
 export class ElectricPianoInstrument extends BaseInstrument {
     constructor() {
         super();
+        this.sampler = SharedSampler.get();
 
-        this.poly = new Tone.PolySynth(Tone.FMSynth, {
-            harmonicity: 3,
-            modulationIndex: 8,
-            oscillator: { type: 'sine' },
-            modulation: { type: 'triangle' },
-            envelope: { attack: 0.01, decay: 0.25, sustain: 0.3, release: 1.2 },
-            modulationEnvelope: { attack: 0.01, decay: 0.2, sustain: 0.2, release: 1.2 },
-            volume: -8
-        });
-
-        this.reverb = new Tone.Reverb({ decay: 1.8, preDelay: 0.04, wet: 0.12 });
+        this.eq3 = new Tone.EQ3({ low: -4, mid: 0, high: 5 });
+        this.chorus = new Tone.Chorus({ frequency: 0.8, delayTime: 3, depth: 0.4, spread: 180 });
+        this.reverb = new Tone.Reverb({ decay: 1.8, preDelay: 0.04, wet: 0.15 });
         this.reverb.generate();
-
-        this.poly.chain(this.reverb);
-        this.output = this.reverb;
     }
 
-    connect(destination) { this.reverb.disconnect(); this.reverb.connect(destination); }
-    disconnect() { this.reverb.disconnect(); }
+    connect(destination) {
+        if (this.sampler) this.sampler.chain(this.eq3, this.chorus, this.reverb, destination);
+    }
+
+    disconnect() {
+        if (this.sampler) this.sampler.disconnect();
+    }
 
     noteOn(note, velocity = 1, time) {
-        this.poly.triggerAttack(note, time || Tone.now(), velocity);
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerAttack(note, time || Tone.now(), velocity);
     }
 
-    noteOff(note, time) { this.poly.triggerRelease(note, time || Tone.now()); }
+    noteOff(note, time) {
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerRelease(note, time || Tone.now());
+    }
 
     setBrightness(amount) {
-        this.poly.set({ modulationIndex: 4 + amount * 14 });
+        this.eq3.high.value = 1 + amount * 8;
+        this.chorus.depth = 0.1 + amount * 0.5;
     }
 
     setRoom(amount) {
-        this.reverb.wet.value = 0.05 + amount * 0.2;
+        this.reverb.wet.value = 0.05 + amount * 0.25;
     }
 
-    dispose() { this.poly.dispose(); this.reverb.dispose(); }
+    dispose() {
+        this.sampler = null;
+        this.eq3.dispose();
+        this.chorus.dispose();
+        this.reverb.dispose();
+    }
 }

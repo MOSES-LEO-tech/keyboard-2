@@ -1,5 +1,5 @@
 $root = "d:\Projects\keyboard-2\Keyboard"
-$port = 5555
+$port = 7000
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add("http://localhost:$port/")
 $listener.Start()

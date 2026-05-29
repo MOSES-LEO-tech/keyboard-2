@@ -24,7 +24,7 @@ export class Sequencer {
         this.speed      = 1.0;
         this.isWaitMode = true;
         this.autoPlay   = false;
-        this.difficulty = 'hard';
+        this.difficulty = 'custom';
 
         /**
          * handAssist: which hand the computer plays automatically
@@ -72,6 +72,10 @@ export class Sequencer {
 
     loadSong(song) {
         this.currentSong = song;
+        // If song has its own difficulty, use it unless explicitly overridden
+        if (song.difficulty && this.difficulty === 'custom') {
+            this.difficulty = song.difficulty;
+        }
         this.events      = this.parseSong(song);
         this.reset();
     }
@@ -94,18 +98,22 @@ export class Sequencer {
     parseSong(song) {
         let events = [];
         const secondsPerBeat = 60 / song.bpm;
-        const isEasy     = this.difficulty === 'easy';
-        const isBeginner = this.difficulty === 'beginner';
+        const effectiveDifficulty = this.difficulty === 'custom' && song.difficulty ? song.difficulty : this.difficulty;
+        // Difficulty presets
+        const difficultyLevels = ['veryEasy', 'easy', 'medium', 'hard', 'veryHard', 'beginner'];
+        const levelIndex = difficultyLevels.indexOf(effectiveDifficulty);
+        // Difficulty settings
+        const maxPolyphony = [2, 2, 3, 4, 6, 1][Math.max(0, Math.min(5, levelIndex))];
+        const filterLeftHand = levelIndex < 2 || this.difficulty === 'beginner'; // veryEasy/easy/beginner filter left
+        const simplifyChords = levelIndex < 3 || this.difficulty === 'beginner'; // veryEasy/easy/medium/beginner simplify chords
 
         // Group notes by start time (for chord detection + beginner simplification)
         const notesByTime = new Map();
 
         song.tracks.forEach(track => {
             const hand = track.hand || 'right';
-
-            // Difficulty filter: easy/beginner drop the left hand entirely
-            if ((isBeginner || isEasy) && hand === 'left') return;
-
+            // Difficulty filter: drop left hand if needed
+            if (filterLeftHand && hand === 'left') return;
             track.notes.forEach(note => {
                 const startTime = note.start * secondsPerBeat;
                 if (!notesByTime.has(startTime)) notesByTime.set(startTime, []);
@@ -118,10 +126,17 @@ export class Sequencer {
             let notesToKeep = notes;
 
             // Beginner: keep only highest pitch note per chord
-            if (isBeginner && notes.length > 1) {
+            if (this.difficulty === 'beginner' && notes.length > 1) {
                 notesToKeep = [notes.reduce((prev, curr) =>
                     this._midiNumber(curr.note) > this._midiNumber(prev.note) ? curr : prev
                 )];
+            } else if (simplifyChords && notes.length > maxPolyphony) {
+                const sorted = [...notes].sort((a, b) => this._midiNumber(b.note) - this._midiNumber(a.note));
+                notesToKeep = sorted.slice(0, maxPolyphony);
+            } else if (simplifyChords && notes.length > 3) {
+                // Keep highest and lowest note, drop middle ones
+                const sorted = [...notes].sort((a, b) => this._midiNumber(a.note) - this._midiNumber(b.note));
+                notesToKeep = [sorted[0], sorted[sorted.length - 1]];
             }
 
             notesToKeep.forEach(note => {
@@ -132,7 +147,7 @@ export class Sequencer {
                     note: note.note,
                     hand: note.hand,
                     time: startTime,
-                    velocity: 0.8
+                    velocity: (note.velocity || 100) / 127
                 });
 
                 events.push({

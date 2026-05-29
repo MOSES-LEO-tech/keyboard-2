@@ -169,9 +169,13 @@ export class UI {
                 <div class="control-group">
                     <label>Difficulty:</label>
                     <select id="difficulty-select">
+                        <option value="custom" selected>Auto (Song Default)</option>
+                        <option value="veryEasy">Very Easy</option>
                         <option value="easy">Easy</option>
                         <option value="medium">Medium</option>
-                        <option value="hard" selected>Hard</option>
+                        <option value="hard">Hard</option>
+                        <option value="veryHard">Very Hard</option>
+                        <option value="beginner">Beginner</option>
                     </select>
                 </div>
 

@@ -1,31 +1,42 @@
 import { BaseInstrument } from './BaseInstrument.js';
+import { SharedSampler } from '../core/SharedSampler.js';
 
 export class BassInstrument extends BaseInstrument {
     constructor() {
         super();
+        this.sampler = SharedSampler.get();
 
-        this.poly = new Tone.PolySynth(Tone.MonoSynth, {
-            oscillator: { type: 'sawtooth' },
-            filter: { type: 'lowpass' },
-            envelope: { attack: 0.01, decay: 0.15, sustain: 0.5, release: 0.5 },
-            filterEnvelope: { attack: 0.01, decay: 0.15, sustain: 0.2, release: 0.4, baseFrequency: 40, octaves: 2 },
-            volume: 0
-        });
-
-        this.poly.connect(Tone.Destination);
-        this.output = this.poly;
+        this.eq3 = new Tone.EQ3({ low: 6, mid: -2, high: -6 });
+        this.filter = new Tone.Filter({ type: 'lowpass', frequency: 600, Q: 0.7 });
+        this.compressor = new Tone.Compressor({ threshold: -12, ratio: 6, attack: 0.002, release: 0.1 });
     }
 
-    connect(destination) { this.poly.disconnect(); this.poly.connect(destination); }
-    disconnect() { this.poly.disconnect(); }
+    connect(destination) {
+        if (this.sampler) this.sampler.chain(this.eq3, this.filter, this.compressor, destination);
+    }
+
+    disconnect() {
+        if (this.sampler) this.sampler.disconnect();
+    }
 
     noteOn(note, velocity = 1, time) {
-        this.poly.triggerAttack(note, time || Tone.now(), velocity);
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerAttack(note, time || Tone.now(), velocity);
     }
 
     noteOff(note, time) {
-        this.poly.triggerRelease(note, time || Tone.now());
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerRelease(note, time || Tone.now());
     }
 
-    dispose() { this.poly.dispose(); }
+    setBrightness(amount) {
+        this.filter.frequency.value = 300 + amount * 800;
+    }
+
+    dispose() {
+        this.sampler = null;
+        this.eq3.dispose();
+        this.filter.dispose();
+        this.compressor.dispose();
+    }
 }

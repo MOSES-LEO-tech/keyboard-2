@@ -1,4 +1,5 @@
 import { InstrumentManager } from './InstrumentManager.js';
+import { SharedSampler } from './SharedSampler.js';
 
 export class AudioEngine {
     constructor(stateManager) {
@@ -7,6 +8,7 @@ export class AudioEngine {
         this.masterGain = null;
         this.instrumentManager = null;
         this.isInitialized = false;
+        this.samplesLoaded = false;
         this.sustain = false;
         this.sustainedNotes = new Set();
         this.contextStarted = false;
@@ -17,15 +19,25 @@ export class AudioEngine {
     }
 
     async init() {
-        if (typeof Tone === 'undefined') return;
+        if (typeof Tone === 'undefined') {
+            console.error('[AudioEngine] Tone.js failed to load. Check that the Tone.js script is included in index.html.');
+            return;
+        }
 
         this.context = Tone.context;
         this.masterGain = new Tone.Gain(this.stateManager.getState().volume ?? 1.8);
         this.masterGain.toDestination();
 
         try {
+            SharedSampler.load('/public/audio/salamander/').then(() => {
+                this.samplesLoaded = true;
+            }).catch((err) => {
+                console.error('[AudioEngine] Failed to load Salamander samples:', err);
+            });
+
             this.instrumentManager = new InstrumentManager(this.context, this.masterGain);
         } catch (error) {
+            console.error('[AudioEngine] Failed to initialize:', error);
             return;
         }
 

@@ -1,35 +1,50 @@
 import { BaseInstrument } from './BaseInstrument.js';
+import { SharedSampler } from '../core/SharedSampler.js';
 
 export class StringsInstrument extends BaseInstrument {
     constructor() {
         super();
+        this.sampler = SharedSampler.get();
 
-        this.poly = new Tone.PolySynth(Tone.Synth, {
-            oscillator: { type: 'sawtooth2' },
-            envelope: { attack: 0.25, decay: 0.15, sustain: 0.7, release: 1.8 },
-            volume: -10
-        });
-
-        this.reverb = new Tone.Reverb({ decay: 2.5, preDelay: 0.08, wet: 0.3 });
+        this.eq3 = new Tone.EQ3({ low: 2, mid: 1, high: -1 });
+        this.filter = new Tone.Filter({ type: 'lowpass', frequency: 1800, Q: 0.5 });
+        this.compressor = new Tone.Compressor({ threshold: -18, ratio: 3, attack: 0.1, release: 0.8 });
+        this.reverb = new Tone.Reverb({ decay: 3.5, preDelay: 0.08, wet: 0.35 });
         this.reverb.generate();
-
-        this.poly.chain(this.reverb);
-        this.output = this.reverb;
     }
 
-    connect(destination) { this.reverb.disconnect(); this.reverb.connect(destination); }
-    disconnect() { this.reverb.disconnect(); }
+    connect(destination) {
+        if (this.sampler) this.sampler.chain(this.eq3, this.filter, this.compressor, this.reverb, destination);
+    }
+
+    disconnect() {
+        if (this.sampler) this.sampler.disconnect();
+    }
 
     noteOn(note, velocity = 1, time) {
-        this.poly.triggerAttack(note, time || Tone.now(), velocity);
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerAttack(note, time || Tone.now(), velocity);
     }
 
-    noteOff(note, time) { this.poly.triggerRelease(note, time || Tone.now()); }
+    noteOff(note, time) {
+        if (!this.sampler || !SharedSampler.isLoaded) return;
+        this.sampler.triggerRelease(note, time || Tone.now());
+    }
 
     setRoom(amount) {
-        this.reverb.wet.value = 0.1 + amount * 0.3;
-        this.reverb.decay = 2.0 + amount * 2.5;
+        this.reverb.wet.value = 0.1 + amount * 0.35;
+        this.reverb.decay = 2.5 + amount * 3.0;
     }
 
-    dispose() { this.poly.dispose(); this.reverb.dispose(); }
+    setBrightness(amount) {
+        this.filter.frequency.value = 800 + amount * 2500;
+    }
+
+    dispose() {
+        this.sampler = null;
+        this.eq3.dispose();
+        this.filter.dispose();
+        this.compressor.dispose();
+        this.reverb.dispose();
+    }
 }
