@@ -3,51 +3,38 @@ import { BaseInstrument } from './BaseInstrument.js';
 export class PadInstrument extends BaseInstrument {
     constructor() {
         super();
-        this.poly = new Tone.PolySynth(Tone.DuoSynth, {
-            voice0: {
-                oscillator: { type: 'sawtooth' },
-                envelope: { attack: 0.5, decay: 0.3, sustain: 0.8, release: 3.0 }
-            },
-            voice1: {
-                oscillator: { type: 'square' },
-                envelope: { attack: 0.6, decay: 0.3, sustain: 0.7, release: 3.2 }
-            }
+
+        this.poly = new Tone.PolySynth(Tone.Synth, {
+            oscillator: { type: 'sawtooth' },
+            envelope: { attack: 0.4, decay: 0.3, sustain: 0.7, release: 2.5 },
+            volume: -10
         });
-        this.filter = new Tone.Filter(1200, 'lowpass', -12);
-        this.filter.Q.value = 0.7; // Set Q value separately
-        this.reverb = new Tone.Reverb({ decay: 4.5, preDelay: 0.2, wet: 0.4 });
-        this.delay = new Tone.FeedbackDelay('8n', 0.2);
-        this.poly.chain(this.filter, this.delay, this.reverb);
+
+        this.reverb = new Tone.Reverb({ decay: 3.0, preDelay: 0.1, wet: 0.3 });
+        this.reverb.generate();
+
+        this.poly.chain(this.reverb);
         this.output = this.reverb;
     }
 
+    connect(destination) { this.reverb.disconnect(); this.reverb.connect(destination); }
+    disconnect() { this.reverb.disconnect(); }
+
     noteOn(note, velocity = 1, time) {
-        const now = time || Tone.now();
-        this.poly.triggerAttack(note, now, velocity);
+        this.poly.triggerAttack(note, time || Tone.now(), velocity);
     }
 
-    noteOff(note, time) {
-        const now = time || Tone.now();
-        this.poly.triggerRelease(note, now);
+    noteOff(note, time) { this.poly.triggerRelease(note, time || Tone.now()); }
+
+    setRoom(amount) {
+        this.reverb.wet.value = 0.1 + amount * 0.35;
     }
 
     setBrightness(amount) {
-        const a = Math.min(1, Math.max(0, amount));
-        const freq = 800 + a * 3000;
-        this.filter.frequency.rampTo(freq, 0.2);
-        this.delay.feedback.rampTo(0.1 + a * 0.3, 0.2);
+        this.poly.set({
+            envelope: { attack: 0.2 + amount * 0.4, decay: 0.2, sustain: 0.7, release: 2.0 + amount * 1.5 }
+        });
     }
 
-    setRoom(amount) {
-        const a = Math.min(1, Math.max(0, amount));
-        this.reverb.wet.value = 0.2 + a * 0.5;
-        this.reverb.decay = 3.0 + a * 3.0;
-    }
-
-    dispose() {
-        this.poly.dispose();
-        this.filter.dispose();
-        this.reverb.dispose();
-        this.delay.dispose();
-    }
+    dispose() { this.poly.dispose(); this.reverb.dispose(); }
 }

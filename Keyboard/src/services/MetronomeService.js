@@ -58,11 +58,25 @@ export class MetronomeService {
         const parsed = parseInt(bpm);
         if (isNaN(parsed) || parsed <= 0) return;
         
-        this.bpm = parsed;
-        if (window.Tone && window.Tone.Transport) {
-            window.Tone.Transport.bpm.value = parsed;
+        this.baseBpm = parsed;
+        const adjustedBpm = Math.round(parsed * (this._speed || 1));
+        this._applyBpm(adjustedBpm);
+    }
+
+    updateSpeed(speed) {
+        const s = Math.max(0.1, Math.min(3, parseFloat(speed) || 1));
+        this._speed = s;
+        if (this.baseBpm) {
+            const adjustedBpm = Math.round(this.baseBpm * s);
+            this._applyBpm(adjustedBpm);
         }
-        console.log('[MetronomeService] BPM updated:', parsed);
+    }
+
+    _applyBpm(bpm) {
+        this.bpm = bpm;
+        if (window.Tone && window.Tone.Transport) {
+            window.Tone.Transport.bpm.value = bpm;
+        }
     }
 
     setVolume(volume) {
@@ -106,7 +120,6 @@ export class MetronomeService {
         }, '4n');
 
         window.Tone.Transport.start();
-        console.log('[MetronomeService] Started metronome');
     }
 
     stop() {
@@ -121,7 +134,6 @@ export class MetronomeService {
         if (window.Tone?.Transport) {
             window.Tone.Transport.stop();
         }
-        console.log('[MetronomeService] Stopped metronome');
     }
 
     toggle() {

@@ -45,29 +45,21 @@ export class InstrumentManager {
     }
 
     switchTo(name) {
-        if (!this.registry.has(name)) {
-            console.warn(`Instrument ${name} not found in registry.`);
-            return;
-        }
+        if (!this.registry.has(name)) return;
 
-        // Lazy instantiation
         if (!this.instances.has(name)) {
             const factory = this.registry.get(name);
             this.instances.set(name, factory());
-            console.log(`Instantiated instrument: ${name}`);
         }
 
         const newInstrument = this.instances.get(name);
 
-        // Disconnect old
         if (this.currentInstrument && this.currentInstrument !== newInstrument) {
             this.currentInstrument.disconnect();
         }
 
-        // Connect new
         newInstrument.connect(this.destination);
         this.currentInstrument = newInstrument;
-        console.log(`Switched to instrument: ${name}`);
     }
 
     getCurrent() {

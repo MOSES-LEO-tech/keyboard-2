@@ -7,7 +7,6 @@ export class InputEngine {
     }
 
     init() {
-        console.log('InputEngine initialized');
         window.addEventListener('keydown', this.handleKeyDown.bind(this));
         window.addEventListener('keyup', this.handleKeyUp.bind(this));
         

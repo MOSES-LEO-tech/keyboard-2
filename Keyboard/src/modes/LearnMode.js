@@ -9,9 +9,6 @@ export class LearnMode {
     }
 
     enter() {
-        console.log('Entered Learn Mode');
-        // Notify UI to highlight the scale
-        // In a real app, we'd have a specific "Guide" state
     }
 
     handleNote(noteEvent) {
@@ -20,14 +17,11 @@ export class LearnMode {
         const noteName = noteEvent.note; 
         
         if (this.targetScale.includes(noteName)) {
-            return noteEvent; // Allow
+            return noteEvent;
         } else {
-            // Block (return null or modified event)
             if (noteEvent.type === 'noteOn') {
-                console.log(`Wrong note: ${noteName}`);
-                // Optional: Play a "thud" sound or visual error
             }
-            return null; // Block sound
+            return null;
         }
     }
 

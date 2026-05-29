@@ -9,6 +9,8 @@
  * - Notes glow as they approach the hit line
  */
 
+import { CONFIG } from '../config.js';
+
 const CHROMATIC = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
 // Display range: C2 (midi 36) to C8 (midi 96) = 60 semitones
@@ -46,6 +48,8 @@ export class KeyStreamView {
         this.animFrameId       = null;
         this.columnOverlays    = new Map(); // fullName -> overlay element
         this.particles         = [];        // Particle system pool
+        this._dirty            = false;     // Only render when changed
+        this._lastRenderTime   = 0;
         
         // Track note range for dynamic row height calculation
         this.minMidi = DISPLAY_LOW_MIDI;
@@ -168,8 +172,14 @@ export class KeyStreamView {
     }
 
     _startRenderLoop() {
+        const throttleMs = 1000 / CONFIG.ui.renderThrottle;
         const loop = () => {
-            this._render();
+            const now = performance.now();
+            if (this._dirty && now - this._lastRenderTime >= throttleMs) {
+                this._render();
+                this._lastRenderTime = now;
+                this._dirty = false;
+            }
             this.animFrameId = requestAnimationFrame(loop);
         };
         this.animFrameId = requestAnimationFrame(loop);
@@ -177,6 +187,7 @@ export class KeyStreamView {
 
     update(time) {
         this.currentTime = time;
+        this._dirty = true;
     }
 
     highlight(noteName) {
@@ -235,7 +246,7 @@ export class KeyStreamView {
     }
 
     spawnParticles(x, y, isLeft) {
-        const count = 18; // cluster size
+        const count = CONFIG.ui.particleCount;
         for (let i = 0; i < count; i++) {
             const angle = Math.random() * Math.PI * 2;
             const speed = Math.random() * 4.5 + 1.5;

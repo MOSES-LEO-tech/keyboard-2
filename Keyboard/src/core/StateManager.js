@@ -23,7 +23,6 @@ export class StateManager {
     }
 
     init() {
-        console.log('StateManager initialized');
     }
 
     getState() {

@@ -19,7 +19,6 @@ export class MappingEngine {
     }
 
     init() {
-        console.log('MappingEngine initialized with Layout System');
     }
 
     setNoteHandler(callback) {

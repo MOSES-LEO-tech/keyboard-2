@@ -59,7 +59,6 @@ export class SongSelectView {
                     this.onSelect(song);
                     this.close();
                 } catch (err) {
-                    console.error('Failed to parse MIDI', err);
                     alert('Error parsing MIDI file. Please try another one.');
                 }
             } else {

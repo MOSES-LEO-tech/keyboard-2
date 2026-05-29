@@ -22,8 +22,6 @@ export class UI {
     }
 
     init() {
-        console.log('UI initialized');
-
         this.renderControls();
 
         // Subscribe to updates
@@ -388,7 +386,6 @@ export class UI {
                     this.libraryService,
                     this.midiService,
                     (song) => {
-                        console.log('Selected song:', song);
                         this.clearTargetHighlights();
                         this.hideGuidedIndicator();
                         this.hideProgressBar();
@@ -436,7 +433,6 @@ export class UI {
                                 }
                             };
                         } else {
-                            console.log('[KeyboardView] Skipping onNoteRequired setup - GuidedMode will handle it');
                         }
 
                         // Show initial progress bar
@@ -508,25 +504,16 @@ export class UI {
 
     // --- On-Key Guidance Methods ---
     highlightNextNote(noteNames) {
-        console.log('[UI] 🎹 highlightNextNote called with:', noteNames);
-
-        // Clear all highlights first
         this.clearTargetHighlights();
 
-        // Highlight the target notes
         if (!Array.isArray(noteNames)) {
             noteNames = [noteNames];
         }
-
-        console.log('[UI] 🎯 Highlighting notes:', noteNames);
 
         noteNames.forEach(noteName => {
             const el = this.keys.get(noteName);
             if (el) {
                 el.classList.add(noteNames.length > 1 ? 'chord-note' : 'next-note');
-                console.log('[UI] ✅ Highlighted key:', noteName);
-            } else {
-                console.warn('[UI] ⚠️ Key not found for note:', noteName);
             }
         });
     }
@@ -803,39 +790,6 @@ export class UI {
         if (processed) {
             this.audioEngine.handleNote(processed);
             this.handleNoteEvent(processed);
-        }
-    }
-
-    // DEBUG: Test function - call window.app.ui.testGuidedModeAdvance() from console
-    testGuidedModeAdvance() {
-        console.log('[DEBUG] Testing GuidedMode advance...');
-        const mode = window.app.mode;
-        console.log('[DEBUG] Current mode:', mode.currentMode?.name);
-
-        if (mode.currentMode?.name === 'guided') {
-            console.log('[DEBUG] Manually calling sequencer.advance()...');
-            window.app.sequencer.advance('C4');
-        } else {
-            console.log('[DEBUG] Not in guided mode, skipping advance test');
-        }
-    }
-
-    // DEBUG: Test function - call window.app.ui.testGuidedModeHandleNote() from console
-    testGuidedModeHandleNote(noteName = 'C4') {
-        console.log('[DEBUG] Testing GuidedMode.handleNote with:', noteName);
-        const mode = window.app.mode;
-        console.log('[DEBUG] Current mode:', mode.currentMode?.name);
-
-        if (mode.currentMode?.name === 'guided') {
-            const noteEvent = {
-                type: 'noteOn',
-                fullName: noteName,
-                inputTime: performance.now()
-            };
-            const result = mode.currentMode.handleNote(noteEvent);
-            console.log('[DEBUG] handleNote result:', result);
-        } else {
-            console.log('[DEBUG] Not in guided mode, cannot test');
         }
     }
 

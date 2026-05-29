@@ -18,13 +18,9 @@ export class LayoutManager {
     }
 
     switchTo(name) {
-        if (!this.layouts.has(name)) {
-            console.warn(`Layout ${name} not found.`);
-            return;
-        }
+        if (!this.layouts.has(name)) return;
 
         this.currentLayout = this.layouts.get(name);
-        console.log(`Switched to layout: ${name}`);
 
         // Notify StateManager so UI can update? 
         // Or assumes StateManager triggered this.

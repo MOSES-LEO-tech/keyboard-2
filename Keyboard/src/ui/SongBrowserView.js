@@ -78,18 +78,18 @@ export class SongBrowserView {
         });
 
         // Filters
-        document.getElementById('filter-difficulty').addEventListener('change', (e) => {
+        this.element.querySelector('#filter-difficulty').addEventListener('change', (e) => {
             this.currentFilter.difficulty = e.target.value || null;
             this.loadSongs();
         });
 
-        document.getElementById('filter-category').addEventListener('change', (e) => {
+        this.element.querySelector('#filter-category').addEventListener('change', (e) => {
             this.currentFilter.category = e.target.value || null;
             this.loadSongs();
         });
 
         // Search
-        const searchInput = document.getElementById('search-input');
+        const searchInput = this.element.querySelector('#search-input');
         searchInput.addEventListener('input', (e) => {
             this.searchQuery = e.target.value.toLowerCase();
             this.loadSongs();
@@ -180,8 +180,6 @@ export class SongBrowserView {
     }
 
     async handleMidiFile(file) {
-        console.log('[SongBrowser] 🎵 Processing MIDI file:', file.name, 'type:', file.type, 'size:', file.size);
-
         if (!file.name.match(/\.midi?$/i)) {
             alert('Please select a valid MIDI file (.mid or .midi)');
             return;
@@ -195,20 +193,12 @@ export class SongBrowserView {
         `;
 
         try {
-            console.log('[SongBrowser] Calling midiService.parseMidiFile...');
             const song = await this.midiService.parseMidiFile(file);
-            console.log('[SongBrowser] ✅ Parsed song:', song.title,
-                '| tracks:', song.tracks.length,
-                '| hands:', song.hands);
-
-            console.log('[SongBrowser] Saving to library...');
             const savedSong = this.libraryService.addCustomSong(song);
-            console.log('[SongBrowser] ✅ Song saved, id:', savedSong.id);
 
             this.onSelect(savedSong);
             this.close();
         } catch (err) {
-            console.error('[SongBrowser] ❌ Failed to parse MIDI:', err);
             dropZone.innerHTML = originalHTML;
             alert('Failed to parse MIDI file: ' + err.message);
         }

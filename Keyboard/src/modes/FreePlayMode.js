@@ -5,8 +5,6 @@ export class FreePlayMode {
     }
 
     enter() {
-        console.log('Entered Free Play Mode');
-        // Clear any specific UI guides
         this.stateManager.setState({ scaleLock: null });
     }
 

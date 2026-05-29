@@ -5,9 +5,6 @@ export class LessonMode {
     }
 
     enter() {
-        console.log('Entered Lesson Mode');
-        // Sequencer should be loaded and isWaitMode handled by Sequencer itself
-        // But we need to listen for notes to advance the sequencer
     }
 
     handleNote(noteEvent) {

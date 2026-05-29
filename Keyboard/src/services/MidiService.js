@@ -19,28 +19,17 @@ export class MidiService {
     // ─────────────────────────────────────────────────────
 
     async parseMidiFile(file) {
-        console.log('[MidiService] 🎵 Starting MIDI file parse:', file.name, 'size:', file.size);
-
-        // Check if the MIDI library is loaded
         const MidiLib = window.Midi;
-        console.log('[MidiService] 📦 MIDI library available:', !!MidiLib);
 
         if (!MidiLib) {
-            console.error('[MidiService] ❌ MIDI library not loaded! Checking script tags...');
-            const scripts = Array.from(document.querySelectorAll('script'));
-            console.log('[MidiService] 📜 Loaded scripts:', scripts.map(s => s.src));
             throw new Error('MIDI library not loaded. Refresh and try again.');
         }
 
         let arrayBuffer;
         try {
-            // Try arrayBuffer first (modern browsers)
             if (typeof file.arrayBuffer === 'function') {
-                console.log('[MidiService] Using file.arrayBuffer()');
                 arrayBuffer = await file.arrayBuffer();
             } else {
-                // Fallback to FileReader (older browsers)
-                console.log('[MidiService] Using FileReader fallback');
                 arrayBuffer = await new Promise((resolve, reject) => {
                     const reader = new FileReader();
                     reader.onload = () => resolve(reader.result);
@@ -48,15 +37,12 @@ export class MidiService {
                     reader.readAsArrayBuffer(file);
                 });
             }
-            console.log('[MidiService] ✅ ArrayBuffer ready, length:', arrayBuffer.byteLength);
         } catch (err) {
-            console.error('[MidiService] ❌ Failed to read file as ArrayBuffer:', err);
             throw new Error('Failed to read MIDI file: ' + err.message);
         }
 
         try {
             const midi = new MidiLib(arrayBuffer);
-            console.log('[MidiService] ✅ MIDI parsed, tracks:', midi.tracks.length);
             const title = this._extractTitle(midi, file.name);
 
             // Build a tick-accurate tempo map for precise timing
@@ -109,7 +95,6 @@ export class MidiService {
                 tracks,
             };
         } catch (err) {
-            console.error('[MidiService] ❌ Error parsing MIDI:', err);
             throw err;
         }
     }

@@ -14,8 +14,6 @@ import { MidiService } from './services/MidiService.js';
 import { MetronomeService } from './services/MetronomeService.js';
 import { Sequencer } from './core/Sequencer.js';
 
-console.log('Keyboard-Keyboard initializing...');
-
 // Initialize Core Modules
 const stateManager = new StateManager();
 const modeController = new ModeController(stateManager);
@@ -48,7 +46,6 @@ mappingEngine.setNoteHandler((noteEvent) => {
     const processedEvent = modeController.processNote(noteEvent);
 
     if (processedEvent) {
-        console.log('Playing Note:', processedEvent);
         audioEngine.handleNote(processedEvent);
 
         // Notify Sequencer to advance if in Wait Mode
