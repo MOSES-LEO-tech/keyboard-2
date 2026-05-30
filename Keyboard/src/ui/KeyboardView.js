@@ -632,7 +632,7 @@ export class UI {
             const keyboard = document.createElement('div');
             keyboard.className = 'keyboard piano-layout';
 
-            const startOctave = 3;
+            const startOctave = 2;
             const endOctave = 7;
             import('../utils/noteUtils.js').then(({ NOTES }) => {
                 for (let oct = startOctave; oct < endOctave; oct++) {

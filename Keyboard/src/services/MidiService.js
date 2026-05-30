@@ -1,5 +1,14 @@
 /* global Midi */
 import { CONFIG } from '../config.js';
+import { ArrangementGenerator } from '../systems/arrangement/ArrangementGenerator.js';
+
+let _arrangementGenerator = null;
+function _getGenerator() {
+    if (!_arrangementGenerator) {
+        _arrangementGenerator = new ArrangementGenerator();
+    }
+    return _arrangementGenerator;
+}
 
 /**
  * MidiService — Robust MIDI file parser with difficulty analysis
@@ -89,7 +98,7 @@ export class MidiService {
             // Calculate difficulty
             const { score, label, details } = this.analyzeDifficulty(tracks, baseBpm);
 
-            return {
+            const songData = {
                 id: `midi_${Date.now()}`,
                 title,
                 bpm: Math.round(baseBpm),
@@ -101,6 +110,16 @@ export class MidiService {
                 description: `Imported MIDI · ${tracks.length} track${tracks.length !== 1 ? 's' : ''} · ${label}`,
                 tracks,
             };
+
+            try {
+                const generator = _getGenerator();
+                songData.difficultyMaps = generator.generateAll(songData);
+            } catch (genErr) {
+                console.warn('[MidiService] Intelligence pipeline failed, using basic difficulty:', genErr);
+                songData.difficultyMaps = null;
+            }
+
+            return songData;
         } catch (err) {
             throw err;
         }

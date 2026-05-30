@@ -63,7 +63,14 @@ export class SongLibraryService {
         song.id = `custom_${Date.now()}`;
         song.isCustom = true;
         song.createdAt = new Date().toISOString();
-        customSongs.push(song);
+
+        // Strip difficultyMaps before localStorage storage (too large, can be regenerated)
+        const storageSong = { ...song };
+        if (storageSong.difficultyMaps) {
+            delete storageSong.difficultyMaps;
+        }
+
+        customSongs.push(storageSong);
         localStorage.setItem(this.STORAGE_KEYS.CUSTOM, JSON.stringify(customSongs));
         return song;
     }

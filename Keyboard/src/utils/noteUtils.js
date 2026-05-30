@@ -2,6 +2,35 @@
 
 export const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
 
+export const NOTE_INDEX_MAP = {
+    'C': 0, 'C#': 1, 'D': 2, 'D#': 3, 'E': 4, 'F': 5,
+    'F#': 6, 'G': 7, 'G#': 8, 'A': 9, 'A#': 10, 'B': 11
+};
+
+/**
+ * Convert note name like "C4" or "F#3" to MIDI number (0-127).
+ */
+export function noteToMidi(noteName) {
+    if (!noteName) return -1;
+    const match = noteName.match(/^([A-G]#?)(-?\d)$/);
+    if (!match) return -1;
+    const note = match[1];
+    const octave = parseInt(match[2]);
+    const noteIndex = NOTE_INDEX_MAP[note];
+    if (noteIndex === undefined) return -1;
+    return noteIndex + (octave + 1) * 12;
+}
+
+/**
+ * Convert MIDI number to note name like "C4".
+ */
+export function midiToNote(midi) {
+    if (midi < 0 || midi > 127) return null;
+    const octave = Math.floor(midi / 12) - 1;
+    const noteIndex = midi % 12;
+    return `${NOTES[noteIndex]}${octave}`;
+}
+
 export function getNoteFromOffset(baseOctave, offset) {
     const totalSemis = (baseOctave * 12) + offset;
     const octave = Math.floor(totalSemis / 12);

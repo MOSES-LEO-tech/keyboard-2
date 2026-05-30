@@ -1,3 +1,5 @@
+import { LEGACY_LABEL_MAP } from '../systems/difficulty/profiles.js';
+
 export class Sequencer {
     constructor(audioEngine, stateManager, ui) {
         this.audioEngine = audioEngine;
@@ -72,11 +74,16 @@ export class Sequencer {
 
     loadSong(song) {
         this.currentSong = song;
-        // If song has its own difficulty, use it unless explicitly overridden
         if (song.difficulty && this.difficulty === 'custom') {
             this.difficulty = song.difficulty;
         }
-        this.events      = this.parseSong(song);
+
+        if (song.difficultyMaps) {
+            this._loadFromDifficultyMap(song);
+        } else {
+            this.events = this.parseSong(song);
+        }
+
         this.reset();
     }
 
@@ -84,9 +91,52 @@ export class Sequencer {
         if (this.currentSong) {
             const wasPlaying = this.isPlaying;
             this.stop();
-            this.events = this.parseSong(this.currentSong);
+            if (this.currentSong.difficultyMaps) {
+                this._loadFromDifficultyMap(this.currentSong);
+                if (window.app?.mainStream) {
+                    window.app.mainStream.setSong(this.currentSong);
+                }
+            } else {
+                this.events = this.parseSong(this.currentSong);
+            }
             if (wasPlaying) this.play();
         }
+    }
+
+    _loadFromDifficultyMap(song) {
+        const mapKey = LEGACY_LABEL_MAP[this.difficulty] || this.difficulty || 'medium';
+        const difficultyMap = song.difficultyMaps[mapKey] || song.difficultyMaps.medium;
+
+        if (!difficultyMap || !difficultyMap.noteMappings || difficultyMap.noteMappings.length === 0) {
+            this.events = this.parseSong(song);
+            return;
+        }
+
+        const secondsPerBeat = 60 / song.bpm;
+        let events = [];
+
+        difficultyMap.noteMappings.forEach(note => {
+            const startTime = note.start * secondsPerBeat;
+            const duration = note.duration * secondsPerBeat;
+
+            events.push({
+                type: 'noteOn',
+                note: note.note,
+                hand: note.hand || 'right',
+                time: startTime,
+                velocity: (note.velocity || 100) / 127
+            });
+
+            events.push({
+                type: 'noteOff',
+                note: note.note,
+                hand: note.hand || 'right',
+                time: startTime + duration
+            });
+        });
+
+        this.events = events.sort((a, b) => a.time - b.time);
+        this.totalEvents = events.filter(e => e.type === 'noteOn').length;
     }
 
     /**

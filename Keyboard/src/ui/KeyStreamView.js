@@ -111,8 +111,8 @@ export class KeyStreamView {
         // Calculate note range (padded)
         const noteRange = this.maxMidi - this.minMidi + 1;
         
-        // Calculate row height dynamically: containerHeight / (noteRange + 6 for padding)
-        this.ROW_HEIGHT = h / (noteRange + 6);
+        // Calculate row height dynamically: containerHeight / (noteRange + 4 for padding)
+        this.ROW_HEIGHT = Math.max(h / (noteRange + 4), 10);
         
         this.canvas.width  = w;
         this.canvas.height = h;
@@ -143,7 +143,18 @@ export class KeyStreamView {
 
         const secondsPerBeat = 60 / song.bpm;
 
-        song.tracks.forEach(track => {
+        // Use difficulty-reduced notes if available from the intelligence pipeline
+        let tracks = song.tracks;
+        if (song.difficultyMaps) {
+            const difficulty = window.app?.state?.getState()?.difficulty || 'medium';
+            const mapKey = difficulty === 'custom' ? song.difficulty : difficulty;
+            const mapping = song.difficultyMaps[mapKey] || song.difficultyMaps.medium;
+            if (mapping && mapping.noteMappings) {
+                tracks = this._difficultyMapToTracks(mapping, song);
+            }
+        }
+
+        tracks.forEach(track => {
             const hand = track.hand || 'right';
             track.notes.forEach(note => {
                 const midi = noteNameToMidi(note.note);
@@ -162,13 +173,35 @@ export class KeyStreamView {
         });
 
         this.notes.sort((a, b) => a.startTime - b.startTime);
-        
+
         // Add padding to note range (3 semitones above and below)
         this.minMidi = Math.max(DISPLAY_LOW_MIDI, this.minMidi - 3);
         this.maxMidi = Math.min(DISPLAY_HIGH_MIDI, this.maxMidi + 3);
-        
+
         // Recalculate row height based on new note range
         this._onResize();
+    }
+
+    /**
+     * Convert difficulty map noteMappings to song-track format.
+     */
+    _difficultyMapToTracks(difficultyMap, song) {
+        const trackMap = {};
+
+        difficultyMap.noteMappings.forEach(note => {
+            const hand = note.hand || 'right';
+            if (!trackMap[hand]) {
+                trackMap[hand] = { hand, instrument: 'piano', notes: [] };
+            }
+            trackMap[hand].notes.push({
+                note: note.note,
+                start: note.start,
+                duration: note.duration,
+                velocity: note.velocity || 100
+            });
+        });
+
+        return Object.values(trackMap);
     }
 
     _startRenderLoop() {
@@ -326,7 +359,7 @@ export class KeyStreamView {
             const x2    = this.HIT_X + (note.endTime   - this.currentTime) * this.pixelsPerSecond;
             const noteW = Math.max(x2 - x1, 4);
             const y     = this._midiToY(note.midi, h);
-            const rh    = Math.max(this.ROW_HEIGHT - 1.5, 3);
+            const rh    = Math.max(this.ROW_HEIGHT - 1.5, 8);
 
             // Proximity glow (within 0.6s of hit line)
             const dist      = Math.abs(note.startTime - this.currentTime);
